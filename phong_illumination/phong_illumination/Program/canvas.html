@@ -1,0 +1,201 @@
+<!-- James Lord Ender Laing -->
+<!DOCTYPE html>
+<html>
+<head>
+
+<TITLE>Phong illumination</TITLE> 
+
+
+<style type="text/css">
+
+canvas { background: white; }
+
+body {
+	font: 100%/1.4 Verdana, Arial, Helvetica, sans-serif;
+	background-color:#FFF;
+	margin: 0;
+	padding: 0;
+	color: #000;
+}
+	
+/* ~~ this fixed width container surrounds all other elements ~~ */
+.container {
+	width: 960px;
+	background-color: #FFF;
+	margin: 0 auto; /* the auto value on the sides, coupled with the width, centers the layout */
+}
+
+h1, h2, h3, h4, h5, h6, p {
+	margin-top: 0;	 /* removing the top margin gets around an issue where margins can escape from their containing div. The remaining bottom margin will hold it away from any elements that follow. */
+	padding-right: 0px;
+	padding-left: 0px; /* adding the padding to the sides of the elements within the divs, instead of the divs themselves, gets rid of any box model math. A nested div with side padding can also be used as an alternate method. */
+	margin-bottom: 2px; padding-bottom: 0;
+}
+ 
+
+</style>
+
+</head>
+     
+
+
+
+<script type="text/javascript" src="../Common/webgl-utils.js"></script>
+<script type="text/javascript" src="../Common/initShaders.js"></script>
+<script type="text/javascript" src="../Common/MV.js"></script>
+<script type="text/javascript" src="LordEnderLaing_setup.js"></script> 
+<script type="text/javascript" src="LordEnderLaing_geometry.js"></script> 
+
+<!-- **************************************************************** -->
+<!-- ***************  SHADERS  ************************************************* -->
+
+
+ 
+
+<!-- Vertex shader 1: lighting calculations -->
+<!-- Lighting calculations are done in eye coordinates  -->
+
+<script id="vertex-shader1" type="x-shader/x-vertex">
+ 
+			attribute vec4 a_vertexPosition;
+            attribute vec4 a_vertexNormal;
+
+			
+			uniform vec4 lightPosition; 
+            uniform vec4 ambientProduct;
+            uniform vec4 diffuseProduct;
+            uniform vec4 specularProduct;
+			uniform float shininess;
+
+            uniform mat4 u_mvMatrix; 
+            uniform mat4 u_projMatrix; 
+
+            varying vec4 fColor;
+            
+
+            void main()
+            {   
+				vec3 eye = vec3(0.0, 0.0, 0.0);
+                vec3 position = (u_mvMatrix * a_vertexPosition).xyz;
+				// you choose if you want input light in eye coords or world
+                vec3 light = lightPosition.xyz; 
+				//vec3 light = (u_mvMatrix * lightPosition).xyz;
+                vec3 L = normalize(light - position);
+                vec3 E = normalize(eye - position);
+                vec3 H = normalize(L + E);
+                vec3 N = normalize( (u_mvMatrix * a_vertexNormal).xyz);
+				 
+
+                // Compute lighting
+                vec4 ambient = ambientProduct;
+
+                float Kd = max(dot(L, N), 0.0);
+                vec4 diffuse = Kd * diffuseProduct;
+				 
+
+                float Ks = pow(max(dot(N, H), 0.0), shininess);
+				vec4 specular = specularProduct* Ks;
+
+                // No specular highlighting on the back			 
+                if(dot(L, N) < 0.0) {
+                    specular = vec4(0.0, 0.0, 0.0, 1.0);
+                }
+				 
+
+                gl_Position = u_projMatrix * u_mvMatrix * a_vertexPosition;
+
+                fColor = ambient + diffuse + specular;
+				 
+				// Debug example:
+				//if(position[2] > -3.0) fColor = vec4(1.0, 0.0, 1.0, 1.0);
+
+                fColor.a = 1.0;
+            
+            }
+        </script>
+		
+
+<script id="fragment-shader" type="x-shader/x-fragment">
+
+precision mediump float;
+
+varying vec4 fColor;
+
+void
+main()
+{
+    gl_FragColor = fColor;
+}
+</script>
+
+<!-- *********  END SHADERS  ******************************************************* -->
+<!-- **************************************************************** -->
+ 
+
+
+<body>
+    <div style="font-family:verdana";>
+        <h1> </h1>
+        
+        <strong>Author: </strong>James Lord Ender Laing
+        &nbsp&nbsp&nbsp&nbsp&nbsp&nbsp        
+        </br>
+        <strong>Description: </strong>This program shows two different objects rendered on screen using a triangulation data structure for the vertices and faces and phong illumination. This program also allows users to alter aspects about the object they are viewing. They can change the material the object is made of, the light position, the light color, the field of view, and the shininess of the object.</br>
+        </br>
+        </br>
+        <strong></strong>
+        </br>
+        </div>
+        
+        <canvas id="gl-canvas" width="512" height="512" style="color:  #000000;">
+        Oops ... your browser doesn't support the HTML5 canvas element
+        </canvas>
+        <br />
+        <div>Toggle between the cylinder and the custom object
+            <button id="toggleObjects">Switch object</button>
+        </div>
+        <div>Alter the material to be
+            <button id="goldMaterial">Gold</button>
+            <button id="emeraldMaterial">Emerald</button>
+        </div>
+        <div>
+            Alter the color of the light
+            <button id="whiteLight">White Light</button>
+            <button id="greenLight">Green Light</button>
+            </div> 
+        <div>
+            Alter the position of the light
+            <button id="eyePosition">Eye Position</button>
+            <button id="otherPosition">Other Position</button>
+            </div>
+        <div>
+        <div>
+            Alter the FOV
+            <input id='fovSlider' type='range' min='10' max='100' step='1' value='60'>
+            <span id='currentValuePercent'>60</span>
+            <script>
+                    
+                    document.getElementById('fovSlider').oninput = function() {
+                        document.getElementById('currentValuePercent').innerHTML = document.getElementById('fovSlider').value;
+                    }
+                </script> 
+        </div> 
+        <div>
+            Alter the shininess
+            <input id='shineSlider' type='range' min='1' max='100' step='1' value='40'>
+            <span id='currentValueShine'></span>
+            <script>
+                    var scaleSlider = document.getElementById("shineSlider");
+                    var minCheck = document.getElementById("currentValueShine");
+            
+                    minCheck.innerHTML = scaleSlider.value;
+                    scaleSlider.oninput = function() {
+                        minCheck.innerHTML = scaleSlider.value;
+                    }
+                </script> 
+            </div> 
+
+        
+        
+</body>
+</html>
